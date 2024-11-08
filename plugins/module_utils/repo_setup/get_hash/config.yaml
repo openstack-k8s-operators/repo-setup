@@ -23,6 +23,7 @@ repo_setup_ci_components:
   - manila
   - network
   - octavia
+  - optimize
   - swift
   - tempest
   - podified
