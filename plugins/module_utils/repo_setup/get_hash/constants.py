@@ -65,6 +65,7 @@ DEFAULT_CONFIG = {
         "manila",
         "network",
         "octavia",
+        "optimize",
         "security",
         "swift",
         "tempest",
@@ -72,5 +73,5 @@ DEFAULT_CONFIG = {
         "ui",
         "validation",
     ],
-    "os_versions": ["centos8", "centos9", "rhel8", "rhel9"],
+    "os_versions": ["centos8", "centos9", "centos10", "rhel8", "rhel9"],
 }
