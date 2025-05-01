@@ -41,6 +41,7 @@ DEFAULT_CONFIG = {
     "repo_setup_releases": [
         "master",
         "antelope",
+        "epoxy",
         "osp18",
     ],
     "dlrn_url": "https://trunk.rdoproject.org",
