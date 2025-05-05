@@ -7,6 +7,7 @@ dlrn_url: 'https://trunk.rdoproject.org'
 repo_setup_releases:
   - master
   - antelope
+  - epoxy
   - osp18
 
 repo_setup_ci_components:
