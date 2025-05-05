@@ -40,4 +40,5 @@ rdo_named_tags:
 
 os_versions:
   - centos9
+  - centos10
   - rhel9

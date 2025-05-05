@@ -34,6 +34,7 @@ DEFAULT_RDO_MIRROR = "https://trunk.rdoproject.org"
 DEFAULT_MIRROR_MAP = {
     "centos8": "http://mirror.centos.org",
     "centos9": "http://mirror.stream.centos.org",
+    "centos10": "http://mirror.stream.centos.org",
     "ubi8": "http://mirror.centos.org",
     "ubi9": "http://mirror.stream.centos.org",
     "rhel8": "https://trunk.rdoproject.org",
@@ -98,6 +99,7 @@ enabled=1
 SUPPORTED_DISTROS = [
     ("centos", "8"),
     ("centos", "9"),
+    ("centos", "10"),
     ("rhel", "8"),
     ("rhel", "9"),
     ("ubi", "8"),
@@ -582,18 +584,18 @@ def _install_repos(args, base_path):
             "stream": distro_name,
         }
         _write_repo(content, distro_path)
-        if distro in ["centos8", "centos9", "ubi8", "ubi9"]:
+        if distro in ["centos8", "centos9", "centos-10", "ubi8", "ubi9"]:
             distro = "centos" + str(distro[-1])
 
     if "centos" in distro:
-        stream = str(distro[-1])
+        stream = str(distro.split('centos')[-1])
         # HA, Powertools are required for CentOS-8
         if int(stream) >= 8:
             if args.stream and not args.no_stream:
                 stream = stream + "-stream"
 
             pt_name = "PowerTools"
-            if "9" in stream:
+            if "9" in stream or "10" in stream:
                 legacy_url = ""
                 pt_name = "CRB"
 
@@ -612,7 +614,7 @@ def _install_repos(args, base_path):
             }
             _write_repo(content, args.output_path)
 
-            if "9" in stream:
+            if "9" in stream or "10" in stream:
                 content = APPSTREAM_REPO_TEMPLATE % {
                     "mirror": args.mirror,
                     "extra": "",
