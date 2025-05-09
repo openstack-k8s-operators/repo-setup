@@ -180,6 +180,7 @@ def _parse_args(distro_id, distro_major_version_id):
         nargs="+",
         choices=[
             "current",
+            "consistent",
             "deps",
             "current-podified",
             "current-podified-dev",
@@ -295,6 +296,7 @@ def _validate_distro_repos(args):
     if "fedora" in args.distro:
         valid_repos = [
             "current",
+            "consistent",
             "current-podified",
             "ceph",
             "deps",
@@ -304,6 +306,7 @@ def _validate_distro_repos(args):
         valid_repos = [
             "ceph",
             "current",
+            "consistent",
             "current-podified",
             "deps",
             "podified-ci-testing",
