@@ -180,6 +180,7 @@ def _parse_args(distro_id, distro_major_version_id):
         nargs="+",
         choices=[
             "current",
+            "consistent",
             "deps",
             "current-podified",
             "current-podified-dev",
@@ -295,6 +296,7 @@ def _validate_distro_repos(args):
     if "fedora" in args.distro:
         valid_repos = [
             "current",
+            "consistent",
             "current-podified",
             "ceph",
             "deps",
@@ -304,6 +306,7 @@ def _validate_distro_repos(args):
         valid_repos = [
             "ceph",
             "current",
+            "consistent",
             "current-podified",
             "deps",
             "podified-ci-testing",
@@ -533,6 +536,10 @@ def _install_repos(args, base_path):
         if repo == "current":
             content = _get_repo(base_path + _get_dlrn_hash_tag(args, "current/delorean.repo"), args)
             _write_repo(content, args.output_path, name="delorean")
+            install_deps(args, base_path)
+        elif repo == "consistent":
+            content = _get_repo(base_path + _get_dlrn_hash_tag(args, "consistent/delorean.repo"), args)
+            _write_repo(content, args.output_path)
             install_deps(args, base_path)
         elif repo == "deps":
             install_deps(args, base_path)
