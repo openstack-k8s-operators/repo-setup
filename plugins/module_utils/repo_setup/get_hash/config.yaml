@@ -37,6 +37,7 @@ rdo_named_tags:
   - component-ci-testing
   - promoted-components
   - podified-ci-testing
+  - podified-ci-testing-tcib
   - current-podified
 
 os_versions:

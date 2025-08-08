@@ -51,6 +51,7 @@ DEFAULT_CONFIG = {
         "component-ci-testing",
         "promoted-components",
         "podified-ci-testing",
+        "podified-ci-testing-tcib",
         "current-podified",
         "current-podified-rdo",
     ],

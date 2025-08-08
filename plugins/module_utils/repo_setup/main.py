@@ -186,6 +186,7 @@ def _parse_args(distro_id, distro_major_version_id):
             "current-podified-dev",
             "ceph",
             "podified-ci-testing",
+            "podified-ci-testing-tcib",
             "current-podified-rdo",
         ],
         help="A list of repos.  Available repos: "
@@ -301,6 +302,7 @@ def _validate_distro_repos(args):
             "ceph",
             "deps",
             "podified-ci-testing",
+            "podified-ci-testing-tcib",
         ]
     elif args.distro in DISTRO_CHOICES:
         valid_repos = [
@@ -310,6 +312,7 @@ def _validate_distro_repos(args):
             "current-podified",
             "deps",
             "podified-ci-testing",
+            "podified-ci-testing-tcib",
         ]
     invalid_repos = [x for x in args.repos if x not in valid_repos]
     if len(invalid_repos) > 0:
@@ -354,6 +357,15 @@ def _validate_podified_ci_testing(repos):
         else:
             raise InvalidArguments(
                 "Cannot use podified-ci-testing at the "
+                "same time as other repos, except "
+                "deps|ceph."
+            )
+    if "podified-ci-testing-tcib" in repos and len(repos) > 1:
+        if "deps" in repos or "ceph" in repos:
+            return True
+        else:
+            raise InvalidArguments(
+                "Cannot use podified-ci-testing-tcib at the "
                 "same time as other repos, except "
                 "deps|ceph."
             )
@@ -549,6 +561,10 @@ def _install_repos(args, base_path):
             install_deps(args, base_path)
         elif repo == "podified-ci-testing":
             content = _get_repo(base_path + _get_dlrn_hash_tag(args, "podified-ci-testing/delorean.repo"), args)
+            _write_repo(content, args.output_path)
+            install_deps(args, base_path)
+        elif repo == "podified-ci-testing-tcib":
+            content = _get_repo(base_path + _get_dlrn_hash_tag(args, "podified-ci-testing-tcib/delorean.repo"), args)
             _write_repo(content, args.output_path)
             install_deps(args, base_path)
         elif repo == "ceph":
