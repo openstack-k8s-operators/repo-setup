@@ -529,8 +529,17 @@ class TestValidate(testtools.TestCase):
         self.assertRaises(main.InvalidArguments, main._validate_args,
                           self.args, '', '')
 
+    def test_podified_ci_testing_tmp_and_current_podified(self):
+        self.args.repos = ['current-podified', 'podified-ci-testing-tcib']
+        self.assertRaises(main.InvalidArguments, main._validate_args,
+                          self.args, '', '')
+
     def test_podified_ci_testing_and_deps_allowed(self):
         self.args.repos = ['deps', 'podified-ci-testing']
+        main._validate_args(self.args, '', '')
+
+    def test_podified_ci_testing_tmp_and_deps_allowed(self):
+        self.args.repos = ['deps', 'podified-ci-testing-tcib']
         main._validate_args(self.args, '', '')
 
     def test_deps_and_podified_dev(self):
