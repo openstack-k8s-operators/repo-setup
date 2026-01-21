@@ -54,8 +54,6 @@ DEFAULT_CONFIG = {
         "podified-ci-testing-tcib",
         "current-podified",
         "current-podified-rdo",
-        "tripleo-ci-testing",
-        "current-tripleo",
     ],
     "repo_setup_ci_components": [
         "baremetal",
