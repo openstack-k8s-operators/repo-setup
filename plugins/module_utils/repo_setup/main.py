@@ -93,6 +93,13 @@ baseurl=%(mirror)s/%(legacy_url)s%(stream)s/BaseOS/$basearch/os/
 gpgcheck=0
 enabled=1
 """
+EXTRA_REPO_TEMPLATE = """
+[repo-setup-%(name)s]
+name=repo-setup-%(name)s
+baseurl=%(baseurl)s
+gpgcheck=%(gpgcheck)s
+%(gpgkey_line)senabled=1
+"""
 
 
 # unversioned fedora added for backwards compatibility
@@ -233,6 +240,31 @@ def _parse_args(distro_id, distro_major_version_id):
     parser.add_argument(
         "--dlrn-hash-tag",
         help="Generate DLRN repos using specific dlrn tag",
+    )
+    parser.add_argument(
+        "--extra-repo",
+        metavar="NAME,baseurl=URL[,gpgkey=URL]",
+        action="append",
+        default=[],
+        help="Add an extra repo. Format: NAME,baseurl=URL[,gpgkey=URL]. "
+        "When gpgkey is provided, gpgcheck is enabled automatically. "
+        "Can be specified multiple times. "
+        "Example: --extra-repo extras-common,"
+        "baseurl=https://mirror.stream.centos.org/SIGs/9-stream/"
+        "extras/x86_64/extras-common/,"
+        "gpgkey=https://www.centos.org/keys/"
+        "RPM-GPG-KEY-CentOS-SIG-Extras",
+    )
+    parser.add_argument(
+        "--disable-repo",
+        metavar="REPO_NAME",
+        action="append",
+        default=[],
+        help="Disable a default repo by name. This prevents "
+        "the repo file from being created. Can be specified "
+        "multiple times. Valid names: highavailability, "
+        "powertools, appstream, baseos, ceph. "
+        "Example: --disable-repo powertools",
     )
     stream_group = parser.add_mutually_exclusive_group()
     stream_group.add_argument(
@@ -401,11 +433,55 @@ def _validate_distro_stream(args, distro_name, distro_major_version_id):
     return True
 
 
+def _parse_extra_repos(extra_repos):
+    """Parse --extra-repo arguments into a list of dicts.
+
+    Format: NAME,baseurl=URL[,gpgkey=URL]
+    """
+    parsed = []
+    for entry in extra_repos:
+        parts = entry.split(",")
+        if len(parts) < 2:
+            raise InvalidArguments(
+                "Invalid --extra-repo format '%s'. "
+                "Expected NAME,baseurl=URL[,gpgkey=URL]." % entry
+            )
+        name = parts[0].strip()
+        if not name:
+            raise InvalidArguments(
+                "Invalid --extra-repo format '%s'. "
+                "Repo name is required." % entry
+            )
+        repo = {"name": name, "baseurl": None, "gpgkey": None}
+        for part in parts[1:]:
+            if "=" not in part:
+                raise InvalidArguments(
+                    "Invalid --extra-repo option '%s' in '%s'. "
+                    "Expected key=value." % (part, entry)
+                )
+            key, value = part.split("=", 1)
+            key = key.strip()
+            if key not in ("baseurl", "gpgkey"):
+                raise InvalidArguments(
+                    "Invalid --extra-repo option '%s' in '%s'. "
+                    "Supported options: baseurl, gpgkey." % (key, entry)
+                )
+            repo[key] = value.strip()
+        if not repo["baseurl"]:
+            raise InvalidArguments(
+                "Invalid --extra-repo format '%s'. "
+                "baseurl is required." % entry
+            )
+        parsed.append(repo)
+    return parsed
+
+
 def _validate_args(args, distro_name, distro_major_version_id):
     _validate_current_repos(args.repos)
     _validate_distro_repos(args)
     _validate_podified_ci_testing(args.repos)
     _validate_distro_stream(args, distro_name, distro_major_version_id)
+    _parse_extra_repos(args.extra_repo)
 
 
 def _remove_existing(args):
@@ -535,6 +611,24 @@ def _get_dlrn_hash_tag(args, repo):
     return repo
 
 
+def _is_repo_disabled(args, repo_name):
+    """Check if a repo has been disabled via --disable-repo."""
+    return repo_name in args.disable_repo
+
+
+def _install_extra_repos(args):
+    """Install extra repos specified via --extra-repo."""
+    for extra in _parse_extra_repos(args.extra_repo):
+        gpgkey = extra.get("gpgkey")
+        content = EXTRA_REPO_TEMPLATE % {
+            "name": extra["name"],
+            "baseurl": extra["baseurl"],
+            "gpgcheck": "1" if gpgkey else "0",
+            "gpgkey_line": "gpgkey=%s\n" % gpgkey if gpgkey else "",
+        }
+        _write_repo(content, args.output_path)
+
+
 def _install_repos(args, base_path):
     def install_deps(args, base_path):
         if 'rhel' in args.distro:
@@ -568,8 +662,11 @@ def _install_repos(args, base_path):
             _write_repo(content, args.output_path)
             install_deps(args, base_path)
         elif repo == "ceph":
-            content = _create_ceph(args, "pacific")
-            _write_repo(content, args.output_path)
+            if not _is_repo_disabled(args, "ceph"):
+                content = _create_ceph(args, "pacific")
+                _write_repo(content, args.output_path)
+            else:
+                print("Skipping disabled repo: ceph")
         else:
             raise InvalidArguments('Invalid repo "%s" specified' % repo)
 
@@ -594,19 +691,25 @@ def _install_repos(args, base_path):
         # rhbz/1961558 and lpbz/1929634
         extra = ""
         distro_name = str(distro[-1]) + "-stream"
-        content = APPSTREAM_REPO_TEMPLATE % {
-            "mirror": args.mirror,
-            "extra": extra,
-            "legacy_url": legacy_url,
-            "stream": distro_name,
-        }
-        _write_repo(content, distro_path)
-        content = BASE_REPO_TEMPLATE % {
-            "mirror": args.mirror,
-            "legacy_url": legacy_url,
-            "stream": distro_name,
-        }
-        _write_repo(content, distro_path)
+        if not _is_repo_disabled(args, "appstream"):
+            content = APPSTREAM_REPO_TEMPLATE % {
+                "mirror": args.mirror,
+                "extra": extra,
+                "legacy_url": legacy_url,
+                "stream": distro_name,
+            }
+            _write_repo(content, distro_path)
+        else:
+            print("Skipping disabled repo: appstream")
+        if not _is_repo_disabled(args, "baseos"):
+            content = BASE_REPO_TEMPLATE % {
+                "mirror": args.mirror,
+                "legacy_url": legacy_url,
+                "stream": distro_name,
+            }
+            _write_repo(content, distro_path)
+        else:
+            print("Skipping disabled repo: baseos")
         if distro in ["centos8", "centos9", "centos-10", "ubi8", "ubi9"]:
             distro = "centos" + str(distro[-1])
 
@@ -622,36 +725,47 @@ def _install_repos(args, base_path):
                 legacy_url = ""
                 pt_name = "CRB"
 
-            content = HIGHAVAILABILITY_REPO_TEMPLATE % {
-                "mirror": args.mirror,
-                "stream": stream,
-                "legacy_url": legacy_url,
-            }
-            _write_repo(content, args.output_path)
+            if not _is_repo_disabled(args, "highavailability"):
+                content = HIGHAVAILABILITY_REPO_TEMPLATE % {
+                    "mirror": args.mirror,
+                    "stream": stream,
+                    "legacy_url": legacy_url,
+                }
+                _write_repo(content, args.output_path)
+            else:
+                print("Skipping disabled repo: highavailability")
 
-            content = POWERTOOLS_REPO_TEMPLATE % {
-                "mirror": args.mirror,
-                "stream": stream,
-                "legacy_url": legacy_url,
-                "pt_name": pt_name,
-            }
-            _write_repo(content, args.output_path)
+            if not _is_repo_disabled(args, "powertools"):
+                content = POWERTOOLS_REPO_TEMPLATE % {
+                    "mirror": args.mirror,
+                    "stream": stream,
+                    "legacy_url": legacy_url,
+                    "pt_name": pt_name,
+                }
+                _write_repo(content, args.output_path)
+            else:
+                print("Skipping disabled repo: powertools")
 
             if "9" in stream or "10" in stream:
-                content = APPSTREAM_REPO_TEMPLATE % {
-                    "mirror": args.mirror,
-                    "extra": "",
-                    "legacy_url": legacy_url,
-                    "stream": stream,
-                }
-                _write_repo(content, args.output_path)
+                if not _is_repo_disabled(args, "appstream"):
+                    content = APPSTREAM_REPO_TEMPLATE % {
+                        "mirror": args.mirror,
+                        "extra": "",
+                        "legacy_url": legacy_url,
+                        "stream": stream,
+                    }
+                    _write_repo(content, args.output_path)
 
-                content = BASE_REPO_TEMPLATE % {
-                    "mirror": args.mirror,
-                    "legacy_url": legacy_url,
-                    "stream": stream,
-                }
-                _write_repo(content, args.output_path)
+                if not _is_repo_disabled(args, "baseos"):
+                    content = BASE_REPO_TEMPLATE % {
+                        "mirror": args.mirror,
+                        "legacy_url": legacy_url,
+                        "stream": stream,
+                    }
+                    _write_repo(content, args.output_path)
+
+    # Install any extra repos specified via --extra-repo
+    _install_extra_repos(args)
 
 
 def _run_pkg_clean(distro):

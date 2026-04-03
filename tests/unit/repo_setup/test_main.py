@@ -109,6 +109,8 @@ class TestTripleORepos(testtools.TestCase):
         args.branch = 'master'
         args.output_path = 'test'
         args.distro = 'fake'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/current/delorean.repo', args),
@@ -129,6 +131,8 @@ class TestTripleORepos(testtools.TestCase):
         args.branch = 'master'
         args.output_path = 'test'
         args.distro = 'fake'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean-deps]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         mock_get.assert_called_once_with('roads/delorean-deps.repo', args)
@@ -144,6 +148,8 @@ class TestTripleORepos(testtools.TestCase):
         args.branch = 'master'
         args.output_path = 'test'
         args.distro = 'fake'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/current-podified/delorean.repo',
@@ -165,6 +171,8 @@ class TestTripleORepos(testtools.TestCase):
         args.branch = 'master'
         args.output_path = 'test'
         args.distro = 'fake'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/podified-ci-testing/delorean.repo',
@@ -193,6 +201,8 @@ class TestTripleORepos(testtools.TestCase):
         args.branch = branch
         args.output_path = 'test'
         args.distro = 'fake'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_repo = '[centos-ceph-pacific]\nMr. Fusion'
         mock_create_ceph.return_value = mock_repo
         main._install_repos(args, 'roads/')
@@ -202,6 +212,8 @@ class TestTripleORepos(testtools.TestCase):
     def test_install_repos_invalid(self):
         args = mock.Mock()
         args.repos = ['roads?']
+        args.disable_repo = []
+        args.extra_repo = []
         self.assertRaises(main.InvalidArguments, main._install_repos, args,
                           'roads/')
 
@@ -216,6 +228,8 @@ class TestTripleORepos(testtools.TestCase):
         args.distro = 'centos8'
         args.stream = False
         args.mirror = 'mirror'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/current/delorean.repo', args),
@@ -252,6 +266,8 @@ class TestTripleORepos(testtools.TestCase):
         args.no_stream = False
         args.mirror = 'mirror'
         args.dlrn_hash_tag = None
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/current/delorean.repo', args),
@@ -288,6 +304,8 @@ class TestTripleORepos(testtools.TestCase):
         args.stream = True
         args.no_stream = False
         args.mirror = 'mirror'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/current/delorean.repo', args),
@@ -336,6 +354,8 @@ class TestTripleORepos(testtools.TestCase):
         args.stream = False
         args.no_stream = True
         args.mirror = 'mirror'
+        args.disable_repo = []
+        args.extra_repo = []
         mock_get.return_value = '[delorean]\nMr. Fusion'
         main._install_repos(args, 'roads/')
         self.assertEqual([mock.call('roads/current/delorean.repo', args),
@@ -515,6 +535,8 @@ class TestValidate(testtools.TestCase):
         self.distro_major_version_id = "9"
         self.args.stream = False
         self.args.no_stream = False
+        self.args.extra_repo = []
+        self.args.disable_repo = []
 
     def test_good(self):
         main._validate_args(self.args, '', '')
@@ -576,3 +598,145 @@ class TestValidate(testtools.TestCase):
 
     def test_validate_distro_repos(self):
         self.assertTrue(main._validate_distro_repos(self.args))
+
+    def test_validate_extra_repo_valid(self):
+        self.args.extra_repo = [
+            'messaging,'
+            'baseurl=https://mirror.stream.centos.org/SIGs/9-stream/'
+            'messaging/x86_64/rabbitmq-4/'
+        ]
+        main._validate_args(self.args, '', '')
+
+    def test_validate_extra_repo_invalid_no_baseurl(self):
+        self.args.extra_repo = ['bad-format']
+        self.assertRaises(main.InvalidArguments, main._validate_args,
+                          self.args, '', '')
+
+    def test_validate_extra_repo_invalid_empty_name(self):
+        self.args.extra_repo = [',baseurl=https://example.com/repo/']
+        self.assertRaises(main.InvalidArguments, main._validate_args,
+                          self.args, '', '')
+
+    def test_validate_extra_repo_invalid_option(self):
+        self.args.extra_repo = [
+            'myrepo,baseurl=https://example.com/,badopt=foo'
+        ]
+        self.assertRaises(main.InvalidArguments, main._validate_args,
+                          self.args, '', '')
+
+
+class TestExtraRepos(testtools.TestCase):
+    def test_parse_extra_repos(self):
+        result = main._parse_extra_repos([
+            'messaging,'
+            'baseurl=https://mirror.stream.centos.org/SIGs/9-stream/'
+            'messaging/x86_64/rabbitmq-4/'
+        ])
+        self.assertEqual(1, len(result))
+        self.assertEqual('messaging', result[0]['name'])
+        self.assertEqual(
+            'https://mirror.stream.centos.org/SIGs/9-stream/'
+            'messaging/x86_64/rabbitmq-4/',
+            result[0]['baseurl'])
+        self.assertIsNone(result[0]['gpgkey'])
+
+    def test_parse_extra_repos_with_gpgkey(self):
+        result = main._parse_extra_repos([
+            'extras-common,'
+            'baseurl=https://mirror.stream.centos.org/SIGs/9-stream/'
+            'extras/x86_64/extras-common/,'
+            'gpgkey=https://www.centos.org/keys/'
+            'RPM-GPG-KEY-CentOS-SIG-Extras'
+        ])
+        self.assertEqual(1, len(result))
+        self.assertEqual('extras-common', result[0]['name'])
+        self.assertEqual(
+            'https://mirror.stream.centos.org/SIGs/9-stream/'
+            'extras/x86_64/extras-common/',
+            result[0]['baseurl'])
+        self.assertEqual(
+            'https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Extras',
+            result[0]['gpgkey'])
+
+    def test_parse_extra_repos_multiple(self):
+        result = main._parse_extra_repos([
+            'repo1,baseurl=https://example.com/repo1/',
+            'repo2,baseurl=https://example.com/repo2/',
+        ])
+        self.assertEqual(2, len(result))
+
+    @mock.patch('repo_setup.main._write_repo')
+    def test_install_extra_repos_no_gpgkey(self, mock_write):
+        args = mock.Mock()
+        args.extra_repo = [
+            'messaging,'
+            'baseurl=https://mirror.stream.centos.org/SIGs/9-stream/'
+            'messaging/x86_64/rabbitmq-4/'
+        ]
+        main._install_extra_repos(args)
+        mock_write.assert_called_once()
+        content = mock_write.call_args[0][0]
+        self.assertIn('[repo-setup-messaging]', content)
+        self.assertIn(
+            'baseurl=https://mirror.stream.centos.org/SIGs/9-stream/'
+            'messaging/x86_64/rabbitmq-4/',
+            content)
+        self.assertIn('gpgcheck=0', content)
+        self.assertNotIn('gpgkey=', content)
+        self.assertIn('enabled=1', content)
+
+    @mock.patch('repo_setup.main._write_repo')
+    def test_install_extra_repos_with_gpgkey(self, mock_write):
+        args = mock.Mock()
+        args.extra_repo = [
+            'extras-common,'
+            'baseurl=https://mirror.stream.centos.org/SIGs/9-stream/'
+            'extras/x86_64/extras-common/,'
+            'gpgkey=https://www.centos.org/keys/'
+            'RPM-GPG-KEY-CentOS-SIG-Extras'
+        ]
+        main._install_extra_repos(args)
+        mock_write.assert_called_once()
+        content = mock_write.call_args[0][0]
+        self.assertIn('[repo-setup-extras-common]', content)
+        self.assertIn('gpgcheck=1', content)
+        self.assertIn(
+            'gpgkey=https://www.centos.org/keys/'
+            'RPM-GPG-KEY-CentOS-SIG-Extras',
+            content)
+        self.assertIn('enabled=1', content)
+
+    @mock.patch('repo_setup.main._get_repo')
+    @mock.patch('repo_setup.main._write_repo')
+    def test_disable_repo_ceph(self, mock_write, mock_get):
+        args = mock.Mock()
+        args.repos = ['ceph']
+        args.branch = 'master'
+        args.output_path = 'test'
+        args.distro = 'fake'
+        args.disable_repo = ['ceph']
+        args.extra_repo = []
+        main._install_repos(args, 'roads/')
+        mock_write.assert_not_called()
+
+    @mock.patch('repo_setup.main._get_repo')
+    @mock.patch('repo_setup.main._write_repo')
+    def test_disable_repo_highavailability(self, mock_write, mock_get):
+        args = mock.Mock()
+        args.repos = ['current']
+        args.dlrn_hash_tag = None
+        args.branch = 'master'
+        args.output_path = 'test'
+        args.distro = 'centos9'
+        args.stream = True
+        args.no_stream = False
+        args.mirror = 'mirror'
+        args.disable_repo = ['highavailability']
+        args.extra_repo = []
+        mock_get.return_value = '[delorean]\nMr. Fusion'
+        main._install_repos(args, 'roads/')
+        written_names = [
+            call[0][0] for call in mock_write.call_args_list
+        ]
+        for content in written_names:
+            self.assertNotIn('highavailability', content)
